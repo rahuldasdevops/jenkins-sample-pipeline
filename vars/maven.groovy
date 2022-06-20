@@ -9,10 +9,8 @@ def call(Map params) {
             environment{
                 MVN_HOME = tool name: "${params.MVN_HOME_MASTER}"
                 JDK_HOME = tool name: "${params.JDK_HOME_MASTER}"
-            //JDK_HOME_windows = tool name: "${params.JDK_HOME_windows}"
                 SQ_SCANNER = tool name: "${params.SQ_SCANNER}"
                 SQ_ENV = "${params.SQ_ENV}"
-                JENKINS_JENKINSSVC_LOGIN = "${params.JENKINS_JENKINSSVC_LOGIN}"
                 NEXUS_CREDENTIAL_ID = "${params.NEXUS_CREDENTIAL_ID}"
                 NEXUS_URL = "${params.NEXUS_URL}"
                 artifactType = "${params.artifactType}"
@@ -35,7 +33,6 @@ def call(Map params) {
                 }
                 stage('Build'){
                     steps{
-                       // sh "$MVN_HOME/bin/mvn dependency:get -DremoteRepositories=http://repo1.maven.org/maven2/ -DgroupId=org.owasp -DartifactId=dependency-check-maven -Dversion=6.1.1"
                         withEnv(["JAVA_HOME=$JDK_HOME"]) {
                             sh "cd mavenJava && $MVN_HOME/bin/mvn clean validate compile"
                         }
@@ -57,20 +54,13 @@ def call(Map params) {
                 stage('SonarQube analysis with vulnerability test') {
                     steps {
                        script {
-                            if ("${params.env}" == 'azureTest') {
+
                                 withEnv(["JAVA_HOME=$JDK_HOME"]) {
-                                    withSonarQubeEnv("$SQ_ENV") {
-                                        sh "cd mavenJava && $SQ_SCANNER/bin/sonar-scanner scan -Dsonar.projectName=pipelines-java_PIV -Dsonar.projectKey=PIV -Dsonar.sources=. -Dsonar.java.binaries=target/classes  -Dsonar.java.test.binaries=target/test-classes -Dsonar.junit.reportPaths=target/surefire-reports -Dsonar.junit.reportsPath=target/surefire-reports -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.coverage.exclusions=src/test/java/** -Dsonar.projectVersion=$BUILD_ID"
-                                    }
-                                }
-                            } else if ("${params.env}" == 'onpremTest' || "${params.env}" == 'onpremProd' || "${params.env}" == 'azureProd') {
-                                withEnv(["JAVA_HOME=$JDK_HOME"]) {
-                                    sh "export https_proxy=http://proxy.sce.com && cd mavenJava && $MVN_HOME/bin/mvn dependency-check:check"
+                                    sh "export https_proxy=<proxy server> && cd mavenJava && $MVN_HOME/bin/mvn dependency-check:check"
                                     withSonarQubeEnv("$SQ_ENV") {
                                         //sh "cd mavenJava && $SQ_SCANNER/bin/sonar-scanner scan -Dsonar.projectName=pipelines-java_PIV -Dsonar.projectKey=PIV -Dsonar.sources=. -Dsonar.java.binaries=target/classes  -Dsonar.java.test.binaries=target/test-classes -Dsonar.junit.reportPaths=target/surefire-reports -Dsonar.junit.reportsPath=target/surefire-reports -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.coverage.exclusions=src/test/java/** -Dsonar.projectVersion=$BUILD_ID"
                                         sh "cd mavenJava && $SQ_SCANNER/bin/sonar-scanner scan -Dsonar.projectName=pipelines-java_PIV -Dsonar.projectKey=PIV -Dsonar.sources=. -Dsonar.java.binaries=target/classes  -Dsonar.java.test.binaries=target/test-classes -Dsonar.junit.reportPaths=target/surefire-reports -Dsonar.junit.reportsPath=target/surefire-reports -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml -Dsonar.coverage.exclusions=src/test/java/** -Dsonar.dependencyCheck.htmlReportPath=target/dependency-check-report.html -Dsonar.dependencyCheck.jsonReportPath=target/dependency-check-report.json -Dsonar.dependencyCheck.summarize=true -Dsonar.projectVersion=$BUILD_ID"
                                     }
-                                }
                             }
                         }
                       //  dependencyCheckPublisher failedTotalCritical: 1, failedTotalHigh: 1, failedTotalMedium: 1, pattern: '**/dependency-check-report.xml'
@@ -109,7 +99,7 @@ def call(Map params) {
                     steps{
                         withCredentials([string(credentialsId: "$params.CODE_SIGN_LOGIN", variable: 'pwd')]) {
 
-                            sh "$JDK_HOME/bin/jarsigner  -J-Dhttp.proxyHost=proxy.sce.com -J-Dhttp.proxyPort=80  -J-Dhttps.proxyHost=proxy.sce.com -J-Dhttps.proxyPort=80 -tsa http://timestamp.digicert.com -keystore $params.keystore_master -storepass $pwd mavenJava/target/helloworld.war devopscodesigning.sce.com"
+                            sh "$JDK_HOME/bin/jarsigner  -J-Dhttp.proxyHost=<proxy server name> -J-Dhttp.proxyPort=80  -J-Dhttps.proxyHost=<proxy server name> -J-Dhttps.proxyPort=80 -tsa http://timestamp.digicert.com -keystore $params.keystore_master -storepass $pwd mavenJava/target/helloworld.war <alias name of code sign ssl>"
                         }
                     }
                 }
@@ -130,7 +120,6 @@ def call(Map params) {
                         script {
                             if ("$Tag" == 'Yes') {
                                 withCredentials([usernamePassword(credentialsId: "${params.GIT_PWD}", passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                                    //sh "cp ${params.scriptPath}/git_tag ${WORKSPACE} && ./git_tag $user $pwd ${params.gitreponame} && git tag v1.0.${BUILD_ID}.${params.env}  && git push --tags && git remote set-url origin ''"
                                     sh "git describe --tags \$(git rev-list --tags --max-count=1)"
                                     sh "git show-ref --tags -d"
                                     sh "cp ${params.scriptPath}/git_* ${WORKSPACE} && ./git_tag $user $pwd ${params.gitreponame} && ./git_auto_increament $Upgrade && git remote set-url origin ''"
@@ -216,12 +205,12 @@ def call(Map params) {
                                         repo=sh (script:'''echo $(basename $gitreponame .git)''',returnStdout:true).trim()
                                     }
                                     tag_version=sh (script:'''echo $(git tag | tail -1)''',returnStdout:true).trim()
-                                    sh """export https_proxy=http://proxy.sce.com:80 && curl \
+                                    sh """export https_proxy=<proxy server>:<port> && curl \
                                             -X POST \
                                             -H "Accept: application/vnd.github.v3+json" \
                                             -H "Authorization: bearer $pwd" \
-                                            https://api.github.com/repos/EdisonInternational/$repo/releases \
-                                            -d '{"tag_name":"$tag_version","target_commitish":"${params.branch}","name":"release-$params.branch-$tag_version.${params.env}","body":"This release has been created from Maven CICD pipeline for PIV only...$BUILD_URL","draft":false,"prerelease":false,"generate_release_notes":true}'
+                                            https://api.github.com/repos/rahul-das4/$repo/releases \
+                                            -d '{"tag_name":"$tag_version","target_commitish":"${params.branch}","name":"release-$params.branch-$tag_version","body":"This release has been created from Maven CICD pipeline for PIV only...$BUILD_URL","draft":false,"prerelease":false,"generate_release_notes":true}'
                                         """
                                 }
                             } else {
@@ -242,13 +231,8 @@ def call(Map params) {
                 echo "**************** Uploading Log to Nexus**************"
                 withCredentials([usernamePassword(credentialsId: "$params.JENKINS_JENKINSSVC_LOGIN", passwordVariable: 'pwd', usernameVariable: 'user')]) {
                     script {
-                        if ("${params.env}" == 'azureTest' || "${params.env}" == 'azureProd') {
-                            sh "export https_proxy=proxy.sce.com:80 && curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
-                        } else if ("${params.env}" == 'onpremTest') {
-                            sh "unset https_proxy && unset http_proxy && curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
-                        } else {
-                            sh "curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
-                        }
+
+                        sh "curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
                         def pom = readMavenPom(file: "mavenJava/pom.xml")
                         version = pom.getVersion()
                         parts = "${version}".toString().split("-");
