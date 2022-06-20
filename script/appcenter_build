@@ -1,4 +1,4 @@
-export https_proxy=http://proxy.sce.com:80
+export https_proxy=<proxyserver:port>
 appcenter login --token $1
 buildID=$(appcenter build queue --branch $2 --app $3 | grep "Build ID" | awk '{print $3}')
 echo $buildID
