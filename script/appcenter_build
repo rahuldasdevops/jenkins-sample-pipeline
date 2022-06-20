@@ -1,0 +1,22 @@
+export https_proxy=http://proxy.sce.com:80
+appcenter login --token $1
+buildID=$(appcenter build queue --branch $2 --app $3 | grep "Build ID" | awk '{print $3}')
+echo $buildID
+sleep 1800
+while :
+do
+status=$(appcenter build branches show -a $3 -b $2 | grep "Build result" | awk '{print $3}')
+if [ ${#status} -eq 0 ]
+then
+sleep 300
+elif [ $status = "succeeded" ]
+then
+echo "build succeeded"
+appcenter build download -t build --id $buildID --app $3 -d "$WORKSPACE" -f $4-$buildID.$5
+break;
+else
+echo "Build is either Cancelled or Failed"
+break;
+fi
+done
+appcenter logout

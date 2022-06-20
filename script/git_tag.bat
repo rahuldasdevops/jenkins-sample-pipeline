@@ -1,0 +1,1 @@
+git remote set-url origin https://%1:%2@github.com/EdisonInternational/%3
