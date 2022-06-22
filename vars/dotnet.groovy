@@ -24,8 +24,8 @@ def call(Map params) {
                     steps {
                         script {
                             try {
-                                bat "$params.nugetExePath config -set http_proxy=http://proxy.sce.com:80"
-                                bat "$params.nugetExePath config -set https_proxy=http://proxy.sce.com:80"
+                                bat "$params.nugetExePath config -set http_proxy=http://<proxyserver:port>"
+                                bat "$params.nugetExePath config -set https_proxy=http://<proxyserver:port>"
                                 bat "$params.nugetExePath restore $params.solutionFile"
                             }
                             catch (err) {
@@ -36,7 +36,7 @@ def call(Map params) {
                 }
                 stage('Scan Vulnerable Dependencies'){
                     steps{
-                        dependencyCheck additionalArguments: 'dependency-check.bat -f HTML -f JSON -f XML -s dotNet -o dotNet --proxyserver proxy.sce.com --proxyport 80 --disableAssembly', odcInstallation: '7.1.0'
+                        dependencyCheck additionalArguments: 'dependency-check.bat -f HTML -f JSON -f XML -s dotNet -o dotNet --proxyserver <proxyserver> --proxyport <port> --disableAssembly', odcInstallation: '7.1.0'
                     }
                 }
                 stage('Publish Dependency-Check Report'){
@@ -62,7 +62,7 @@ def call(Map params) {
                         nunit testResultsPattern: 'dotNet\\TestResult.xml'
                     }
                 }
-            /*    stage("Quality Gate") {
+                stage("Quality Gate") {
                     steps {
                         script{
                             sleep(10)
@@ -78,7 +78,7 @@ def call(Map params) {
                             }
                         }
                     }
-                }*/
+                }
                 stage('Sign and Create Artefact') {
                     steps {
                         bat "mkdir ${params.artifactName}"
@@ -117,8 +117,8 @@ def call(Map params) {
                                     bat "git show-ref --tags -d"
                                     bat "copy ${params.scriptPath_win}\\git_tag.bat ${WORKSPACE}"
                                     bat "./git_tag.bat $user $pwd ${params.gitreponame}"
-                                    bat "git config --global http.proxy http://proxy.sce.com:80"
-                                    bat "git config --global https.proxy http://proxy.sce.com:80"
+                                    bat "git config --global http.proxy http://<proxyserver:port>"
+                                    bat "git config --global https.proxy http://<proxyserver:port>"
                                     bat "copy ${params.scriptPath_win}\\git_auto_increament.ps1 ${WORKSPACE}"
                                     powershell ".\\git_auto_increament.ps1 $Upgrade"
                                     bat "git remote set-url origin ''"
@@ -162,60 +162,6 @@ def call(Map params) {
                 stage('Verify Again downloaded Artifact') {
                     steps {
                         bat "${params.signtool_windows} verify /pa $WORKSPACE\\${params.artifactName}-$BUILD_ID\\${params.signArti_exe}"
-                    }
-                }
-                stage('Validation of Windows ID') {
-                    steps {
-                        withCredentials([usernamePassword(credentialsId: "$params.JENKINSSVC_CREDENTIAL_ID", passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                            script {
-                                bat script: "echo **************** Checking SCE\\JENKINSSVC **************"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use  /user:$user \"$params.prodtarget\" $pwd"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use \"$params.prodtarget\" /delete /Y"
-                                bat label: '', script: "net use"
-                            }
-                        }
-                        withCredentials([usernamePassword(credentialsId: "$params.LAW_AD_JENKINSSVC_CREDENTIAL_ID", passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                            script {
-                                bat script: "echo **************** Checking LAW_AD\\JENKINSSVC **************"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use  /user:$user \"$params.deployment_ProdServername\" $pwd"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use \"$params.deployment_ProdServername\" /delete /Y"
-                                bat label: '', script: "net use"
-                            }
-                        }
-                        withCredentials([usernamePassword(credentialsId: "$params.SCET_JENKINSSVCT_CREDENTIAL_ID", passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                            script {
-                                bat script: "echo **************** Checking SCET\\JENKINSSVCT **************"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use  /user:$user \"$params.stTarget\" $pwd"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use \"$params.stTarget\" /delete /Y"
-                                bat label: '', script: "net use"
-                            }
-                        }
-                        withCredentials([usernamePassword(credentialsId: "$params.JENKINSSVCT_CREDENTIAL_ID", passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                            script {
-                                bat script: "echo **************** Checking SCE\\JENKINSSVCT **************"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use  /user:$user \"$params.deploymentTargetUT\" $pwd"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use \"$params.deploymentTargetUT\" /delete /Y"
-                                bat label: '', script: "net use"
-                            }
-                        }
-                        withCredentials([usernamePassword(credentialsId: "$params.LAWT_JENKINSSVCT_CREDENTIAL_ID", passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                            script {
-                                bat script: "echo **************** Checking LAWT\\JENKINSSVCT **************"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use  /user:$user \"$params.deployment_qaServername\" $pwd"
-                                bat label: '', script: "net use"
-                                bat label: '', script: "net use \"$params.deployment_qaServername\" /delete /Y"
-                                bat label: '', script: "net use"
-                            }
-                        }
                     }
                 }
                 stage('Run functional Test'){

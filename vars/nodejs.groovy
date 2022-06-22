@@ -29,14 +29,14 @@ def call(Map params) {
                 }
                 stage('Install Dependencies') {
                     steps {
-                        sh label: '', script: '''npm config set proxy http://proxy.sce.com:80
+                        sh label: '', script: '''npm config set proxy http://<proxyserver:port>
 						 cd nodeJS && npm install && npm install jest-junit npm-pack-all jest-sonar-reporter
 						  npm config set proxy "" '''
                     }
                 }
                 stage('Scan Vulnerable Dependencies'){
                     steps{
-                        dependencyCheck additionalArguments: 'dependency-check.sh -f HTML -f JSON -f XML -s nodeJS -o nodeJS --proxyserver proxy.sce.com --proxyport 80 --disableAssembly', odcInstallation: '7.1.0'
+                        dependencyCheck additionalArguments: 'dependency-check.sh -f HTML -f JSON -f XML -s nodeJS -o nodeJS --proxyserver <proxyserver> --proxyport <port> --disableAssembly', odcInstallation: '7.1.0'
                     }
                 }
                 stage('Publish Dependency-Check Report'){
@@ -193,25 +193,6 @@ def call(Map params) {
                         sh "cd HelloWorld && openssl dgst -sha256 -verify ${params.codeSign_pubKey_master} -signature sign *.${params.artifactType}"
                     }
                 }
-                stage('Validate Azure Cli') {
-                    steps {
-                        script {
-                            if ("${params.env}" == 'azureProd') {
-                                echo "**************** Validating PROD **************"
-                                withCredentials([usernamePassword(credentialsId: '9a822e4e-fbad-4c41-a899-eb95a06aa619', passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                                    sh "export https_proxy=http://proxy.sce.com && az login --service-principal --username $user --password $pwd --tenant 5b2a8fee-4c95-4bdc-8aae-196f8aacb1b6 && az logout"
-                                }
-                                echo "**************** Validating Non-PROD **************"
-                                withCredentials([usernamePassword(credentialsId: '01659c4b-7f71-475c-8f2a-c7e6a49ffd15', passwordVariable: 'pwd', usernameVariable: 'user')]) {
-                                    sh "export https_proxy=http://proxy.sce.com && az login --service-principal --username $user --password $pwd --tenant 5b2a8fee-4c95-4bdc-8aae-196f8aacb1b6 && az logout"
-                                }
-                            } else {
-                                echo "Not require..."
-                            }
-                        }
-
-                    }
-                }
                 stage('Run functional Test'){
                     steps{
                         build 'functionalTest_nodejs'
@@ -226,7 +207,7 @@ def call(Map params) {
                                         repo=sh (script:'''echo $(basename $gitreponame .git)''',returnStdout:true).trim()
                                     }
                                     tag_version=sh (script:'''echo $(git tag | tail -1)''',returnStdout:true).trim()
-                                    sh """export https_proxy=http://proxy.sce.com:80 && curl \
+                                    sh """export https_proxy=http://<proxyserver:port> && curl \
                                             -X POST \
                                             -H "Accept: application/vnd.github.v3+json" \
                                             -H "Authorization: bearer $pwd" \
@@ -252,13 +233,8 @@ def call(Map params) {
                 echo "**************** Uploading Log to Nexus**************"
                 withCredentials([usernamePassword(credentialsId: "$params.JENKINS_JENKINSSVC_LOGIN", passwordVariable: 'pwd', usernameVariable: 'user')]) {
                     script {
-                        if ("${params.env}" == 'azureTest' || "${params.env}" == 'azureProd') {
-                            sh "export https_proxy=proxy.sce.com:80 && curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
-                        } else if ("${params.env}" == 'onpremTest') {
-                            sh "unset https_proxy && unset http_proxy && curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
-                        } else {
-                            sh "curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
-                        }
+                        sh "curl -k -u  $user:$pwd \"${BUILD_URL}/consoleText\" --output consoleLog_CD.txt"
+
                     }
                 }
                 nexusArtifactUploader artifacts: [[artifactId: "HelloWorld_Log", classifier: '', file: "consoleLog_CD.txt", type: "txt"]], credentialsId: "$params.NEXUS_CREDENTIAL_ID", groupId: "PIV_nodejs", nexusUrl: "$params.NEXUS_URL", nexusVersion: 'nexus3', protocol: 'https', repository: "PIV", version: "$version-$BUILD_ID"
