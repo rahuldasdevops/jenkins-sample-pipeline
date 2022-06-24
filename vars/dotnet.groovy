@@ -9,7 +9,7 @@ def call(Map params) {
             }
             environment {
                 MSBUILD_2017 = tool name: "${params.MSBUILD_2017}"
-                jdk_home_aewcpdop01 = tool name: "${params.jdk_home_aewcpdop01}"
+                jdk_home = tool name: "${params.jdk_home_win}"
                 SQ_MSBUILD_SCANNNER = tool name: "${params.SQ_MSBUILD_SCANNNER}"
             }
             stages {
@@ -46,7 +46,7 @@ def call(Map params) {
                 }
                 stage('SonarQube Analysis , Build & UT') {
                     steps {
-                        withEnv(["JAVA_HOME=$jdk_home_aewcpdop01"]) {
+                        withEnv(["JAVA_HOME=$jdk_home_win"]) {
                             withSonarQubeEnv("$params.SQ_ENV") {
                                 //bat "$SQ_MSBUILD_SCANNNER begin /k:PIV_dotNet /n:PIV_dotNet /d:sonar.verbose=true /v:$BUILD_ID /d:sonar.vbnet.nunit.reportsPaths=dotNet\\TestResult.xml /d:sonar.sourceEncoding=windows-1252 /d:sonar.vbnet.opencover.reportsPaths=\"dotNet\\OpenCover.xml"
                                 bat "$SQ_MSBUILD_SCANNNER begin /k:PIV_dotNet /n:PIV_dotNet /d:sonar.verbose=true /v:$BUILD_ID /d:sonar.vbnet.nunit.reportsPaths=dotNet\\TestResult.xml /d:sonar.sourceEncoding=windows-1252 /d:sonar.vbnet.opencover.reportsPaths=\"dotNet\\OpenCover.xml\" /d:sonar.dependencyCheck.jsonReportPath=\"${WORKSPACE}\\dotNet\\dependency-check-report.json\" /d:sonar.dependencyCheck.htmlReportPath=\"${WORKSPACE}\\dotNet\\dependency-check-report.html\" /d:sonar.dependencyCheck.summarize=true"
@@ -90,7 +90,7 @@ def call(Map params) {
                             //bat "${params.signtool_windows} sign /f ${params.keystore_windows_pfx} /p $pwd /t http://timestamp.digicert.com /fd SHA256 $WORKSPACE\\${params.artifactName}\\${params.signArti_exe}"
                             bat "${params.signtool_windows} sign /f ${params.keystore_windows_pfx} /p $pwd /fd SHA256 $WORKSPACE\\${params.artifactName}\\${params.signArti_exe}"
                         }
-                        bat "${params.AEWCPDOP01_JAR_PATH} -cMf ${params.artifactName}.${params.artifactType} -C ${params.artifactName}\\ ."
+                        bat "${params.JAR_PATH} -cMf ${params.artifactName}.${params.artifactType} -C ${params.artifactName}\\ ."
 
                     }
                 }
@@ -137,7 +137,7 @@ def call(Map params) {
                             bat "./nx_download.bat $user $pwd $BUILD_ID PIV PIV_dotNet HelloWorld . .${params.artifactType}"
                         }
                         bat "mkdir ${params.artifactName}-$BUILD_ID"
-                        bat "cd ${params.artifactName}-$BUILD_ID & ${params.AEWCPDOP01_JAR_PATH} -xf \"$WORKSPACE\\HelloWorld-$BUILD_ID.${params.artifactType}\""
+                        bat "cd ${params.artifactName}-$BUILD_ID & ${params.JAR_PATH} -xf \"$WORKSPACE\\HelloWorld-$BUILD_ID.${params.artifactType}\""
                     }
                 }
                 stage('Validate Shasum') {

@@ -3,6 +3,7 @@ def azureTest() {
             MVN_HOME_MASTER : "<maven tool name>",
             NODE_HOME : "<npm home>",
             JDK_HOME_MASTER : "jdk tool",
+            jdk_home_win : "",
             JarSigner_windows : '"C:\\Program Files\\Java\\jdk1.8.0_251\\bin\\jarsigner"',
             keystore_windows : "<codesign jks path>",
             keystore_master : "<codesign jks path>",
